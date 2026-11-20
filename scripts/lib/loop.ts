@@ -22,7 +22,24 @@ export const signature = (a: Attempt) => [...(a.gates.at(-1)?.newFailures ?? [])
 //   the same non-empty failures twice in a row (signature) → escalate · max attempts used → escalate · else → attempt
 // The agent's own verdict "ok" never counts: only the gate does.
 export function decide(attempts: Attempt[], max = MAX_ATTEMPTS): Decision {
-  void attempts
-  void max
-  throw new Error('decide() is not written yet: step 2 of the workshop (scripts/lib/loop.ts)')
+  const last = attempts.at(-1)
+  if (!last) return { kind: 'attempt' }
+  if (isStable(last)) return { kind: 'done' }
+  if (last.verdict === 'needs_human')
+    return { kind: 'escalate', reason: 'the agent asked a question', question: last.question ?? 'The agent needs a human decision; see the attempt summary.' }
+  const prev = attempts.at(-2)
+  const sig = signature(last)
+  if (prev && sig !== '' && sig === signature(prev))
+    return {
+      kind: 'escalate',
+      reason: 'two attempts in a row failed the same way',
+      question: `These failures did not change between attempts:\n${sig}\nHow should they be fixed?`,
+    }
+  if (attempts.length >= max)
+    return {
+      kind: 'escalate',
+      reason: `${max} attempts used`,
+      question: `No stable green gate after ${max} attempts. How should the remaining failures be fixed?`,
+    }
+  return { kind: 'attempt' }
 }
