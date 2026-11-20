@@ -65,3 +65,31 @@ Reply with:
 4. **Assumptions**: any reading of the task you chose.
 
 Wording rule from `CLAUDE.md`: do not call the work "verified", "done" or "passing". Those words are reserved for `npm run gate`, which compares against the baseline (`npm run baseline` once, then `npm run gate`). This skill runs `verify`, so say what verify printed and suggest `npm run gate` as the next step. Never tick a human gate (`Plan approved`, `Human review`, visual acceptance).
+
+## Inside the build loop
+
+When the prompt says you are **inside a script-owned loop** (`npm run build:loop` adds this line, plus the attempt number and the previous attempt's new failures), the rules below replace steps 3 and 4. Steps 1 and 2 still apply.
+
+1. **Format, then gate, not verify.** Loop agents run with hooks off (to keep each attempt cheap and quiet), so the format hook does not run. After your edits run:
+
+   ```bash
+   npm run format
+   npm run -s gate -- --json
+   ```
+
+   The gate prints `{ ok, newFailures, preExisting, fixed, passed, ... }`.
+   - **Only `newFailures` are yours.** Fix those.
+   - `preExisting` is not yours. That includes the Los Angeles date test. Leave it alone.
+   - If the prompt lists the previous attempt's new failures, fix only those.
+   - Make your best change once. Do not loop on the gate. The script re-runs the gate itself and decides what happens next.
+
+2. **Never ask in text.** There is no human reading your text output. If a decision belongs to a human (the task is ambiguous, or it conflicts with `CLAUDE.md`), stop and return `status: "needs_human"` with exactly one `question`. Do not ask for routine choices you can make yourself; pick the obvious option and say so in the summary.
+
+3. **The JSON verdict is the report.** Return only the verdict the script asks for. No markdown report.
+   - `status`:
+     - `"ok"` only if your last gate run printed `"ok": true` with an empty `newFailures`.
+     - `"failed"` if new failures remain.
+     - `"needs_human"` with a `question`, as in rule 2.
+   - `summary`: one line covering what you changed and what your last gate run printed, e.g. `Added DriverStandingsPage + route, nav, test, story, e2e; gate ok, 0 new, 99 passed`. If new failures remain, name their ids.
+
+   Your `ok` is advisory. The script's own gate runs decide whether the attempt counts.
