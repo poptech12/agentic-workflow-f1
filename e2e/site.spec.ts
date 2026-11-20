@@ -22,6 +22,15 @@ test('unknown race shows a not-found message', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Race not found' })).toBeVisible()
 })
 
+test('constructor standings lists the leader first and home shows leader points', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByLabel('Constructor leader')).toContainText('points')
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Constructors' }).click()
+  await expect(page).toHaveURL(/\/standings\/constructors$/)
+  await expect(page.getByRole('heading', { name: 'Constructor standings' })).toBeVisible()
+  await expect(page.getByRole('row').nth(1).getByRole('cell').first()).toHaveText('1')
+})
+
 test('driver standings lists the season leader first', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Drivers' }).click()
